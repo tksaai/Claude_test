@@ -14,9 +14,14 @@ class Config:
     top_highlights: int = 20
     snapshot_interval_seconds: int = 60
     output_dir: str = "out"
+    audio_enabled: bool = True
 
 
-def load_config(path: str | None, channel_overrides: list[str] | None = None) -> Config:
+def load_config(
+    path: str | None,
+    channel_overrides: list[str] | None = None,
+    audio_enabled_override: bool | None = None,
+) -> Config:
     data = {}
     if path:
         with open(path, encoding="utf-8") as f:
@@ -44,4 +49,9 @@ def load_config(path: str | None, channel_overrides: list[str] | None = None) ->
         top_highlights=int(data.get("top_highlights", 20)),
         snapshot_interval_seconds=int(data.get("snapshot_interval_seconds", 60)),
         output_dir=data.get("output_dir", "out"),
+        audio_enabled=(
+            audio_enabled_override
+            if audio_enabled_override is not None
+            else bool(data.get("audio_enabled", True))
+        ),
     )

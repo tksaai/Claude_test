@@ -4,6 +4,7 @@ import logging
 import os
 import time
 
+from .audio import AudioCapture, AudioFrame
 from .chat import ChatMessage, ChatReader
 from .chapters import ChapterTracker
 from .config import Config
@@ -34,6 +35,17 @@ class StreamSession:
         self.engine = HighlightEngine(bucket_seconds=config.bucket_seconds)
         self.chat = ChatReader(self.login, self._on_message)
 
+        self.audio: AudioCapture | None = None
+        if config.audio_enabled:
+            if AudioCapture.available():
+                self.audio = AudioCapture(self.login, self.start_epoch, self._on_audio_frame)
+            else:
+                log.warning(
+                    "[%s] streamlink / ffmpeg が見つからないため音声解析を無効化します"
+                    " (pip install streamlink と ffmpeg のインストールで有効化)",
+                    self.login,
+                )
+
         date = datetime.datetime.fromtimestamp(self.start_epoch).strftime("%Y%m%d")
         self.out_dir = os.path.join(config.output_dir, self.login, f"{date}_{self.stream_id}")
 
@@ -45,10 +57,18 @@ class StreamSession:
             asyncio.create_task(self.chat.run(), name=f"chat:{self.login}"),
             asyncio.create_task(self._snapshot_loop(), name=f"snapshot:{self.login}"),
         ]
-        log.info("[%s] 配信を検知、追跡開始 (stream_id=%s)", self.login, self.stream_id)
+        if self.audio:
+            self._tasks.append(asyncio.create_task(self.audio.run(), name=f"audio:{self.login}"))
+        log.info(
+            "[%s] 配信を検知、追跡開始 (stream_id=%s, 音声解析=%s)",
+            self.login, self.stream_id, "有効" if self.audio else "無効",
+        )
 
     def _on_message(self, msg: ChatMessage):
         self.engine.add_message(msg.user, msg.text, msg.emote_count, msg.ts - self.start_epoch)
+
+    def _on_audio_frame(self, frame: AudioFrame):
+        self.engine.add_audio(frame.offset, frame.excitement)
 
     def update_channel_info(self, stream: dict):
         offset = time.time() - self.start_epoch
@@ -65,7 +85,6 @@ class StreamSession:
             self.write_snapshot()
 
     def write_snapshot(self, final: bool = False):
-        self.engine.flush()
         highlights = self.engine.ranked_highlights(self.config.top_highlights)
         meta = {
             "user_name": self.user_name,
@@ -83,6 +102,8 @@ class StreamSession:
 
     async def stop(self):
         self.chat.stop()
+        if self.audio:
+            self.audio.stop()
         for t in self._tasks:
             t.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)

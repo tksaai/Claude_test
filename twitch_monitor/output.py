@@ -34,15 +34,15 @@ def render_markdown(meta: dict, chapters: list[Chapter], highlights: list[Highli
         "",
         "## 切り抜き候補ランキング",
         "",
-        "| # | 時間 | タイプ | スコア | コメント数 | 人数 | ピーク倍率 | 代表コメント |",
-        "|---|------|--------|--------|-----------|------|-----------|--------------|",
+        "| # | 時間 | タイプ | スコア | コメント数 | 人数 | ピーク倍率 | 音声 | 代表コメント |",
+        "|---|------|--------|--------|-----------|------|-----------|------|--------------|",
     ]
     for i, h in enumerate(highlights, 1):
         span = f"{format_offset(h.start_offset)}〜{format_offset(h.end_offset)}"
         sample = h.samples[0].replace("|", "\\|") if h.samples else ""
         lines.append(
             f"| {i} | {span} | {h.category} | {h.score} | {h.messages} | {h.unique_users}"
-            f" | x{h.peak_spike} | {sample} |"
+            f" | x{h.peak_spike} | {h.audio_peak} | {sample} |"
         )
     lines.append("")
     return "\n".join(lines)

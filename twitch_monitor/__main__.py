@@ -16,6 +16,10 @@ def main():
         "--channel", action="append", default=None,
         help="監視するチャンネル(複数指定可、configのchannelsより優先)",
     )
+    parser.add_argument(
+        "--no-audio", action="store_true",
+        help="配信音声の解析を無効化する(チャットのみで判定)",
+    )
     parser.add_argument("--verbose", action="store_true", help="デバッグログを出す")
     args = parser.parse_args()
 
@@ -24,7 +28,7 @@ def main():
         format="%(asctime)s %(levelname)s %(message)s",
     )
 
-    config = load_config(args.config, args.channel)
+    config = load_config(args.config, args.channel, audio_enabled_override=False if args.no_audio else None)
     try:
         asyncio.run(run_monitor(config))
     except KeyboardInterrupt:

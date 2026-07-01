@@ -18,5 +18,9 @@ snapshot_interval_seconds: 60
 # 出力先ディレクトリ
 output_dir: out
 
+# 配信音声の解析(BGM/ゲーム音を除いた「声の盛り上がり」検知)
+# streamlink と ffmpeg が必要。無ければ自動でチャットのみにフォールバック
+audio_enabled: true
+
 # 認証情報は環境変数 TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET を推奨
 # (ここに書くことも可能: client_id: xxx / client_secret: xxx)
