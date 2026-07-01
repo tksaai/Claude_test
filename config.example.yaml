@@ -1,0 +1,22 @@
+# 監視対象のTwitchチャンネル(ログイン名、URLの twitch.tv/xxx の部分)
+channels:
+  - example_channel_1
+  - example_channel_2
+
+# 配信検知のポーリング間隔(秒)。Helix APIは無料・レート制限も十分緩い
+poll_interval_seconds: 60
+
+# チャット集計のバケット幅(秒)。小さいほど細かくスパイクを検知
+bucket_seconds: 10
+
+# ランキングに載せる切り抜き候補の最大数
+top_highlights: 20
+
+# タイムライン/ランキングをファイルに書き出す間隔(秒)
+snapshot_interval_seconds: 60
+
+# 出力先ディレクトリ
+output_dir: out
+
+# 認証情報は環境変数 TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET を推奨
+# (ここに書くことも可能: client_id: xxx / client_secret: xxx)
