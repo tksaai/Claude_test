@@ -17,6 +17,7 @@ VOICE_BAND = (300.0, 3400.0)   # 人声(叫び/笑い声)の主要帯域
 TOTAL_BAND = (50.0, 8000.0)
 
 CHANNEL_RE = re.compile(r"^[a-z0-9_]{1,25}$")
+VOD_ID_RE = re.compile(r"^\d+$")
 
 
 @dataclass
@@ -164,3 +165,45 @@ class AudioCapture:
         finally:
             if self._proc.returncode is None:
                 self._proc.kill()
+
+
+async def analyze_vod_audio(vod_id: str, on_frame: Callable[[AudioFrame], None]) -> int:
+    """アーカイブ(VOD)の音声を実時間より高速に解析する。
+
+    VODはライブと違い先頭からのデコードなので、オフセットはフレーム番号から
+    正確に求まる(HLSライブエッジの遅延ずれがない)。処理フレーム数(≒秒数)を返す。
+    """
+    if not VOD_ID_RE.match(vod_id):
+        raise ValueError(f"不正なVOD ID: {vod_id!r}")
+    proc = await asyncio.create_subprocess_exec(
+        "streamlink", "--stream-url", f"https://www.twitch.tv/videos/{vod_id}", "audio_only",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, err = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"streamlink失敗: {err.decode(errors='replace').strip()[:200]}")
+    url = out.decode().strip()
+
+    analyzer = AudioAnalyzer()
+    ffmpeg = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-loglevel", "error", "-i", url,
+        "-vn", "-f", "s16le", "-ac", "1", "-ar", str(SAMPLE_RATE), "pipe:1",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    frame_idx = 0
+    try:
+        while True:
+            try:
+                data = await ffmpeg.stdout.readexactly(FRAME_SAMPLES * 2)
+            except asyncio.IncompleteReadError:
+                break  # VOD末尾
+            samples = np.frombuffer(data, dtype=np.int16)
+            on_frame(analyzer.process_frame(samples, frame_idx * FRAME_SECONDS))
+            frame_idx += 1
+    finally:
+        if ffmpeg.returncode is None:
+            ffmpeg.kill()
+        await ffmpeg.wait()
+    return frame_idx

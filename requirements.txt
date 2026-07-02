@@ -2,3 +2,4 @@ aiohttp>=3.9
 PyYAML>=6.0
 numpy>=1.26
 streamlink>=6.0
+chat-downloader>=0.2
